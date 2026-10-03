@@ -221,7 +221,7 @@ class PlayerViewModel(app: Application) : AndroidViewModel(app) {
         }
     }
 
-    fun setSpeed(s: Float) = player.setPlaybackSpeed(s)
+    fun changeSpeed(s: Float) = player.setPlaybackSpeed(s)
 
     // ---------- Sleep timer ----------
     fun setSleep(minutes: Int) {

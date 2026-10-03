@@ -277,7 +277,7 @@ fun NowPlaying(vm: PlayerViewModel, onClose: () -> Unit) {
             "Playback speed",
             options.map { it.toString().removeSuffix(".0") + "x" },
             options.indexOf(vm.speed),
-            { vm.setSpeed(options[it]) },
+            { vm.changeSpeed(options[it]) },
             { showSpeed = false }
         )
     }
