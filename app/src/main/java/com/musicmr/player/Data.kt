@@ -33,7 +33,8 @@ object MusicRepository {
             MediaStore.Audio.Media.ALBUM_ID,
             MediaStore.Audio.Media.DURATION
         )
-        val sel = "${MediaStore.Audio.Media.IS_MUSIC} != 0 AND ${MediaStore.Audio.Media.DURATION} >= 20000"
+        val sel = "${MediaStore.Audio.Media.IS_RINGTONE} = 0 AND ${MediaStore.Audio.Media.IS_ALARM} = 0 AND " +
+            "${MediaStore.Audio.Media.IS_NOTIFICATION} = 0 AND ${MediaStore.Audio.Media.DURATION} >= 1000"
         val order = "${MediaStore.Audio.Media.TITLE} COLLATE NOCASE ASC"
         val artBase = Uri.parse("content://media/external/audio/albumart")
         ctx.contentResolver.query(MediaStore.Audio.Media.EXTERNAL_CONTENT_URI, proj, sel, null, order)?.use { c ->
