@@ -143,7 +143,7 @@ fun NowPlaying(vm: PlayerViewModel, onClose: () -> Unit) {
                     style = MaterialTheme.typography.labelMedium,
                     letterSpacing = 2.sp
                 )
-                IconButton(onClick = { uriHandler.openUri(TELEGRAM_URL) }) {
+                IconButton(onClick = { runCatching { uriHandler.openUri(vm.telegramUrl) } }) {
                     Icon(Icons.Rounded.Send, null, tint = TelegramBlue)
                 }
             }

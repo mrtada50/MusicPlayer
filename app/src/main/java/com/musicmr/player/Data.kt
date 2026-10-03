@@ -15,8 +15,12 @@ data class Song(
     val albumId: Long,
     val duration: Long,
     val uri: Uri,
-    val artUri: Uri
-)
+    val artUri: Uri,
+    val path: String,
+    val dateAdded: Long
+) {
+    val folder: String get() = path.substringBeforeLast('/', "")
+}
 
 data class Detail(val kind: String, val key: String, val title: String, val subtitle: String)
 
@@ -31,7 +35,9 @@ object MusicRepository {
             MediaStore.Audio.Media.ARTIST,
             MediaStore.Audio.Media.ALBUM,
             MediaStore.Audio.Media.ALBUM_ID,
-            MediaStore.Audio.Media.DURATION
+            MediaStore.Audio.Media.DURATION,
+            MediaStore.Audio.Media.DATA,
+            MediaStore.Audio.Media.DATE_ADDED
         )
         val sel = "${MediaStore.Audio.Media.IS_RINGTONE} = 0 AND ${MediaStore.Audio.Media.IS_ALARM} = 0 AND " +
             "${MediaStore.Audio.Media.IS_NOTIFICATION} = 0 AND ${MediaStore.Audio.Media.DURATION} >= 1000"
@@ -52,7 +58,9 @@ object MusicRepository {
                         albumId = albumId,
                         duration = c.getLong(5),
                         uri = ContentUris.withAppendedId(MediaStore.Audio.Media.EXTERNAL_CONTENT_URI, id),
-                        artUri = ContentUris.withAppendedId(artBase, albumId)
+                        artUri = ContentUris.withAppendedId(artBase, albumId),
+                        path = c.getString(6) ?: "",
+                        dateAdded = c.getLong(7)
                     )
                 )
             }
@@ -113,6 +121,51 @@ class Store(ctx: Context) {
             o.put(k, to)
         }
         sp.edit().putString("tags", o.toString()).apply()
+    }
+
+    fun excluded(): Set<String> = (sp.getStringSet("excl", emptySet()) ?: emptySet()).toSet()
+
+    fun saveExcluded(s: Set<String>) {
+        sp.edit().putStringSet("excl", s.toSet()).apply()
+    }
+
+    fun telegramUrl(): String = sp.getString("tg", null) ?: TELEGRAM_URL
+
+    fun saveTelegramUrl(u: String) {
+        sp.edit().putString("tg", u).apply()
+    }
+
+    fun attempted(): Set<String> = (sp.getStringSet("attempted", emptySet()) ?: emptySet()).toSet()
+
+    fun saveAttempted(s: Set<String>) {
+        sp.edit().putStringSet("attempted", s.toSet()).apply()
+    }
+
+    fun sortMode(): Int = sp.getInt("sort", 0)
+
+    fun saveSortMode(i: Int) {
+        sp.edit().putInt("sort", i).apply()
+    }
+
+    fun playCounts(): Map<Long, Int> {
+        val result = HashMap<Long, Int>()
+        try {
+            val o = JSONObject(sp.getString("plays", "{}") ?: "{}")
+            val keys = o.keys()
+            while (keys.hasNext()) {
+                val k = keys.next()
+                val id = k.toLongOrNull() ?: continue
+                result[id] = o.getInt(k)
+            }
+        } catch (ex: Exception) {
+        }
+        return result
+    }
+
+    fun savePlayCounts(m: Map<Long, Int>) {
+        val o = JSONObject()
+        m.forEach { (k, v) -> o.put(k.toString(), v) }
+        sp.edit().putString("plays", o.toString()).apply()
     }
 
     fun savePlaylists(m: Map<String, List<Long>>) {

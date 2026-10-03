@@ -59,6 +59,8 @@ import androidx.compose.material.icons.rounded.RemoveCircleOutline
 import androidx.compose.material.icons.rounded.Search
 import androidx.compose.material.icons.rounded.SelectAll
 import androidx.compose.material.icons.rounded.Send
+import androidx.compose.material.icons.rounded.Settings
+import androidx.compose.material.icons.rounded.Sort
 import androidx.compose.material.icons.rounded.Shuffle
 import androidx.compose.material.icons.rounded.SkipNext
 import androidx.compose.material3.Button
@@ -170,6 +172,8 @@ fun Library(vm: PlayerViewModel) {
     var playlistFor by remember { mutableStateOf<List<Song>?>(null) }
     var tagFor by remember { mutableStateOf<List<Song>?>(null) }
     var deleteFor by remember { mutableStateOf<List<Song>?>(null) }
+    var showSettings by remember { mutableStateOf(false) }
+    var showSort by remember { mutableStateOf(false) }
 
     val holder = remember { arrayOfNulls<ActivityResultLauncher<IntentSenderRequest>>(1) }
     val launchSender: (IntentSender) -> Unit = { sender ->
@@ -180,7 +184,7 @@ fun Library(vm: PlayerViewModel) {
     }
     holder[0] = deleteLauncher
 
-    val songs = vm.songs
+    val songs = remember(vm.songs, vm.sortMode, vm.favorites) { vm.sortSongs(vm.songs) }
     val byId = remember(songs) { songs.associateBy { it.id } }
     val d = detail
     val q = query.trim()
@@ -217,6 +221,7 @@ fun Library(vm: PlayerViewModel) {
         searching = false
         query = ""
     }
+    BackHandler(enabled = showSettings) { showSettings = false }
 
     val actions = SongActions(
         onPlaylist = { playlistFor = listOf(it) },
@@ -336,7 +341,10 @@ fun Library(vm: PlayerViewModel) {
                                 modifier = Modifier.weight(1f)
                             )
                             IconButton(onClick = { searching = true }) { Icon(Icons.Rounded.Search, null) }
-                            Pill(Icons.Rounded.Send, "Channel", TelegramBlue) { uriHandler.openUri(TELEGRAM_URL) }
+                            IconButton(onClick = { showSettings = true }) { Icon(Icons.Rounded.Settings, null) }
+                            Pill(Icons.Rounded.Send, "Channel", TelegramBlue) {
+                                runCatching { uriHandler.openUri(vm.telegramUrl) }
+                            }
                         }
                     }
                 }
@@ -360,11 +368,11 @@ fun Library(vm: PlayerViewModel) {
                                 CircularProgressIndicator()
                             }
                         } else {
-                            SongList(songs, vm, true, selected, actions)
+                            SongList(songs, vm, true, selected, actions, onSort = { showSort = true })
                         }
                         key == "tab1" -> AlbumsGrid(songs) { detail = it }
                         key == "tab2" -> ArtistsList(songs) { detail = it }
-                        key == "tab3" -> SongList(favSongs, vm, true, selected, actions, "No favorites yet")
+                        key == "tab3" -> SongList(favSongs, vm, true, selected, actions, "No favorites yet", onSort = { showSort = true })
                         else -> CollectionsTab(vm) { detail = it }
                     }
                 }
@@ -377,6 +385,14 @@ fun Library(vm: PlayerViewModel) {
             exit = slideOutVertically { it }
         ) {
             NowPlaying(vm) { showPlayer = false }
+        }
+
+        AnimatedVisibility(
+            visible = showSettings,
+            enter = slideInVertically { it },
+            exit = slideOutVertically { it }
+        ) {
+            SettingsScreen(vm) { showSettings = false }
         }
     }
 
@@ -407,6 +423,21 @@ fun Library(vm: PlayerViewModel) {
             onDismiss = { deleteFor = null }
         )
     }
+    if (showSort) {
+        ChoiceDialog(
+            "Sort by",
+            listOf(
+                "Name",
+                "Download date (oldest first)",
+                "Newest first",
+                "Most played",
+                "Favorites first, then newest"
+            ),
+            vm.sortMode,
+            { vm.setSort(it) },
+            { showSort = false }
+        )
+    }
 }
 
 @Composable
@@ -416,7 +447,8 @@ fun SongList(
     showButtons: Boolean,
     selected: Set<Long>,
     actions: SongActions,
-    emptyText: String = "No songs found"
+    emptyText: String = "No songs found",
+    onSort: (() -> Unit)? = null
 ) {
     if (list.isEmpty()) {
         Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
@@ -442,6 +474,9 @@ fun SongList(
                         Icon(Icons.Rounded.Shuffle, null)
                         Spacer(Modifier.width(6.dp))
                         Text("Shuffle")
+                    }
+                    if (onSort != null) {
+                        IconButton(onClick = onSort) { Icon(Icons.Rounded.Sort, null) }
                     }
                 }
             }

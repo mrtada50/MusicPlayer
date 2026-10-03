@@ -2,9 +2,11 @@ package com.musicmr.player
 
 import android.app.Application
 import android.database.ContentObserver
+import android.os.Environment
 import android.os.Handler
 import android.os.Looper
 import android.provider.MediaStore
+import android.media.MediaScannerConnection
 import android.media.audiofx.BassBoost
 import android.media.audiofx.Equalizer
 import androidx.compose.runtime.getValue
@@ -28,6 +30,7 @@ import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import java.io.File
 import kotlin.random.Random
 
 class PlayerViewModel(app: Application) : AndroidViewModel(app) {
@@ -66,6 +69,21 @@ class PlayerViewModel(app: Application) : AndroidViewModel(app) {
     var tags by mutableStateOf<Map<String, TagData>>(emptyMap())
         private set
     var pendingDelete: List<Song> = emptyList()
+    var allSongs by mutableStateOf<List<Song>>(emptyList())
+        private set
+    var excluded by mutableStateOf<Set<String>>(emptySet())
+        private set
+    var sortMode by mutableIntStateOf(0)
+        private set
+    var playCounts by mutableStateOf<Map<Long, Int>>(emptyMap())
+        private set
+    var scanning by mutableStateOf(false)
+        private set
+    private var lastScan = 0L
+    private var countedId: Long? = null
+    var telegramUrl by mutableStateOf(TELEGRAM_URL)
+        private set
+    private var attempted: Set<String> = emptySet()
 
     private var reloadJob: Job? = null
     private val observer = object : ContentObserver(Handler(Looper.getMainLooper())) {
@@ -98,6 +116,11 @@ class PlayerViewModel(app: Application) : AndroidViewModel(app) {
         favorites = store.favorites()
         playlists = store.playlists()
         tags = store.tags()
+        excluded = store.excluded()
+        sortMode = store.sortMode()
+        playCounts = store.playCounts()
+        telegramUrl = store.telegramUrl()
+        attempted = store.attempted()
         isPlaying = player.isPlaying
         shuffle = player.shuffleModeEnabled
         repeatMode = player.repeatMode
@@ -108,6 +131,7 @@ class PlayerViewModel(app: Application) : AndroidViewModel(app) {
             }
 
             override fun onMediaItemTransition(mediaItem: MediaItem?, reason: Int) {
+                countedId = null
                 syncCurrent()
             }
 
@@ -135,6 +159,14 @@ class PlayerViewModel(app: Application) : AndroidViewModel(app) {
             while (true) {
                 position = player.currentPosition.coerceAtLeast(0L)
                 duration = player.duration.coerceAtLeast(0L)
+                if (player.isPlaying && position > 10_000L) {
+                    val id = current?.id
+                    if (id != null && id != countedId) {
+                        countedId = id
+                        playCounts = playCounts + (id to ((playCounts[id] ?: 0) + 1))
+                        store.savePlayCounts(playCounts)
+                    }
+                }
                 delay(400)
             }
         }
@@ -172,11 +204,16 @@ class PlayerViewModel(app: Application) : AndroidViewModel(app) {
                     emptyList()
                 }
             }
-            songs = list
+            allSongs = list
             byId = list.associateBy { it.id }
+            applyFilter()
             loaded = true
-            syncCurrent()
         }
+    }
+
+    private fun applyFilter() {
+        songs = allSongs.filter { it.folder !in excluded }
+        syncCurrent()
     }
 
     private fun toItem(s: Song): MediaItem = MediaItem.Builder()
@@ -354,6 +391,97 @@ class PlayerViewModel(app: Application) : AndroidViewModel(app) {
     fun deletePlaylist(name: String) {
         playlists = playlists - name
         store.savePlaylists(playlists)
+    }
+
+    // ---------- Sorting, hidden folders, scanning ----------
+    fun setSort(mode: Int) {
+        sortMode = mode
+        store.saveSortMode(mode)
+    }
+
+    fun sortSongs(list: List<Song>): List<Song> = when (sortMode) {
+        0 -> list.sortedBy { it.title.lowercase() }
+        1 -> list.sortedBy { it.dateAdded }
+        2 -> list.sortedByDescending { it.dateAdded }
+        3 -> list.sortedWith(
+            compareByDescending<Song> { playCounts[it.id] ?: 0 }.thenBy { it.title.lowercase() }
+        )
+        else -> list.sortedWith(
+            compareByDescending<Song> { it.id in favorites }.thenByDescending { it.dateAdded }
+        )
+    }
+
+    fun setFolderHidden(folder: String, hidden: Boolean) {
+        excluded = if (hidden) excluded + folder else excluded - folder
+        store.saveExcluded(excluded)
+        applyFilter()
+    }
+
+    fun setTelegramUrl(raw: String) {
+        var u = raw.trim()
+        if (u.isEmpty()) {
+            u = TELEGRAM_URL
+        } else if (u.startsWith("@")) {
+            u = "https://t.me/" + u.removePrefix("@")
+        } else if ("://" !in u) {
+            u = if (u.startsWith("t.me/") || u.startsWith("telegram.me/")) "https://$u" else "https://t.me/$u"
+        }
+        telegramUrl = u
+        store.saveTelegramUrl(u)
+    }
+
+    fun onResume() {
+        if (loaded) rescan(false)
+    }
+
+    fun rescan(deep: Boolean) {
+        if (scanning) return
+        scanning = true
+        val known = allSongs.map { it.path }.toSet() + attempted
+        viewModelScope.launch {
+            val files = withContext(Dispatchers.IO) { findNewAudio(known, deep) }
+            if (files.isNotEmpty()) {
+                try {
+                    MediaScannerConnection.scanFile(ctx, files.toTypedArray(), null, null)
+                } catch (ex: Exception) {
+                }
+                attempted = (attempted + files).toList().takeLast(3000).toSet()
+                store.saveAttempted(attempted)
+                delay(1200)
+            }
+            load()
+            scanning = false
+        }
+    }
+
+    private fun findNewAudio(known: Set<String>, deep: Boolean): List<String> {
+        val found = mutableListOf<String>()
+        try {
+            val roots = listOf(
+                Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS),
+                Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_MUSIC),
+                Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_PODCASTS),
+                File(Environment.getExternalStorageDirectory(), "Telegram")
+            )
+            val exts = setOf("mp3", "m4a", "aac", "ogg", "opus", "oga", "wav", "flac", "amr")
+            val depth = if (deep) 6 else 3
+            val limit = if (deep) 20000 else 3000
+            val deadline = System.currentTimeMillis() + (if (deep) 6000L else 700L)
+            var visited = 0
+            for (root in roots) {
+                if (!root.exists()) continue
+                for (f in root.walkTopDown().maxDepth(depth)) {
+                    visited++
+                    if (visited > limit || System.currentTimeMillis() > deadline) return found
+                    if (f.isFile && f.extension.lowercase() in exts && f.absolutePath !in known) {
+                        found.add(f.absolutePath)
+                        if (found.size >= 1500) return found
+                    }
+                }
+            }
+        } catch (ex: Exception) {
+        }
+        return found
     }
 
     // ---------- Equalizer ----------
