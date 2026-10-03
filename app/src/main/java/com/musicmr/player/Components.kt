@@ -1,9 +1,10 @@
 package com.musicmr.player
 
 import android.net.Uri
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -15,10 +16,12 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.rounded.CheckCircle
 import androidx.compose.material.icons.rounded.Favorite
 import androidx.compose.material.icons.rounded.FavoriteBorder
 import androidx.compose.material.icons.rounded.MoreVert
 import androidx.compose.material.icons.rounded.MusicNote
+import androidx.compose.material.icons.rounded.RadioButtonUnchecked
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Icon
@@ -90,22 +93,43 @@ fun Pill(
 }
 
 @Composable
+fun SegChip(text: String, selected: Boolean, onClick: () -> Unit) {
+    Text(
+        text,
+        modifier = Modifier
+            .clip(CircleShape)
+            .background(if (selected) Violet else Color.White.copy(alpha = 0.1f))
+            .clickable(onClick = onClick)
+            .padding(horizontal = 16.dp, vertical = 8.dp),
+        style = MaterialTheme.typography.labelLarge,
+        color = Color.White
+    )
+}
+
+@OptIn(ExperimentalFoundationApi::class)
+@Composable
 fun SongRow(
     song: Song,
     playing: Boolean,
     fav: Boolean,
+    selected: Boolean,
+    selecting: Boolean,
     onClick: () -> Unit,
+    onLongClick: () -> Unit,
     onFav: () -> Unit,
     onPlayNext: () -> Unit,
     onQueue: () -> Unit,
-    onAddToPlaylist: () -> Unit
+    onPlaylist: () -> Unit,
+    onTag: () -> Unit,
+    onDelete: () -> Unit
 ) {
     var menu by remember { mutableStateOf(false) }
     val muted = MaterialTheme.colorScheme.onSurfaceVariant
     Row(
         Modifier
             .fillMaxWidth()
-            .clickable(onClick = onClick)
+            .background(if (selected) Violet.copy(alpha = 0.18f) else Color.Transparent)
+            .combinedClickable(onClick = onClick, onLongClick = onLongClick)
             .padding(horizontal = 16.dp, vertical = 8.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
@@ -127,19 +151,33 @@ fun SongRow(
                 color = muted
             )
         }
-        IconButton(onClick = onFav) {
+        if (selecting) {
             Icon(
-                if (fav) Icons.Rounded.Favorite else Icons.Rounded.FavoriteBorder,
+                if (selected) Icons.Rounded.CheckCircle else Icons.Rounded.RadioButtonUnchecked,
                 null,
-                tint = if (fav) Color(0xFFFB7185) else muted
+                tint = if (selected) Violet else muted,
+                modifier = Modifier.padding(12.dp)
             )
-        }
-        Box {
-            IconButton(onClick = { menu = true }) { Icon(Icons.Rounded.MoreVert, null, tint = muted) }
-            DropdownMenu(expanded = menu, onDismissRequest = { menu = false }) {
-                DropdownMenuItem(text = { Text("Play next") }, onClick = { menu = false; onPlayNext() })
-                DropdownMenuItem(text = { Text("Add to queue") }, onClick = { menu = false; onQueue() })
-                DropdownMenuItem(text = { Text("Add to playlist") }, onClick = { menu = false; onAddToPlaylist() })
+        } else {
+            IconButton(onClick = onFav) {
+                Icon(
+                    if (fav) Icons.Rounded.Favorite else Icons.Rounded.FavoriteBorder,
+                    null,
+                    tint = if (fav) Color(0xFFFB7185) else muted
+                )
+            }
+            Box {
+                IconButton(onClick = { menu = true }) { Icon(Icons.Rounded.MoreVert, null, tint = muted) }
+                DropdownMenu(expanded = menu, onDismissRequest = { menu = false }) {
+                    DropdownMenuItem(text = { Text("Play next") }, onClick = { menu = false; onPlayNext() })
+                    DropdownMenuItem(text = { Text("Add to queue") }, onClick = { menu = false; onQueue() })
+                    DropdownMenuItem(text = { Text("Add to playlist") }, onClick = { menu = false; onPlaylist() })
+                    DropdownMenuItem(text = { Text("Add to tag") }, onClick = { menu = false; onTag() })
+                    DropdownMenuItem(
+                        text = { Text("Delete", color = Color(0xFFFB7185)) },
+                        onClick = { menu = false; onDelete() }
+                    )
+                }
             }
         }
     }

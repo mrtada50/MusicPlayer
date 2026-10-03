@@ -18,7 +18,9 @@ data class Song(
     val artUri: Uri
 )
 
-data class Detail(val title: String, val subtitle: String, val songs: List<Song>)
+data class Detail(val kind: String, val key: String, val title: String, val subtitle: String)
+
+data class TagData(val color: Int, val ids: List<Long>)
 
 object MusicRepository {
     fun query(ctx: Context): List<Song> {
@@ -81,6 +83,35 @@ class Store(ctx: Context) {
         } catch (ex: Exception) {
         }
         return result
+    }
+
+    fun tags(): Map<String, TagData> {
+        val result = linkedMapOf<String, TagData>()
+        try {
+            val o = JSONObject(sp.getString("tags", "{}") ?: "{}")
+            val keys = o.keys()
+            while (keys.hasNext()) {
+                val k = keys.next()
+                val t = o.getJSONObject(k)
+                val a = t.getJSONArray("ids")
+                result[k] = TagData(t.getInt("c"), (0 until a.length()).map { a.getLong(it) })
+            }
+        } catch (ex: Exception) {
+        }
+        return result
+    }
+
+    fun saveTags(m: Map<String, TagData>) {
+        val o = JSONObject()
+        m.forEach { (k, t) ->
+            val arr = JSONArray()
+            t.ids.forEach { arr.put(it) }
+            val to = JSONObject()
+            to.put("c", t.color)
+            to.put("ids", arr)
+            o.put(k, to)
+        }
+        sp.edit().putString("tags", o.toString()).apply()
     }
 
     fun savePlaylists(m: Map<String, List<Long>>) {

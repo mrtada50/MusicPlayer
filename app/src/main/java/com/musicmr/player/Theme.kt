@@ -10,6 +10,10 @@ val Surface1 = Color(0xFF15151F)
 val Violet = Color(0xFF8B5CF6)
 val Cyan = Color(0xFF22D3EE)
 val TelegramBlue = Color(0xFF229ED9)
+val TagColors = listOf(
+    Color(0xFF8B5CF6), Color(0xFF22D3EE), Color(0xFFFB7185), Color(0xFFF59E0B),
+    Color(0xFF10B981), Color(0xFF3B82F6), Color(0xFFEC4899), Color(0xFFA3E635)
+)
 const val TELEGRAM_URL = "https://t.me/musicmr1999"
 
 @Composable

@@ -1,6 +1,10 @@
 package com.musicmr.player
 
 import android.app.Application
+import android.database.ContentObserver
+import android.os.Handler
+import android.os.Looper
+import android.provider.MediaStore
 import android.media.audiofx.BassBoost
 import android.media.audiofx.Equalizer
 import androidx.compose.runtime.getValue
@@ -9,6 +13,7 @@ import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.graphics.toArgb
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import androidx.media3.common.C
@@ -58,6 +63,17 @@ class PlayerViewModel(app: Application) : AndroidViewModel(app) {
     var sleepLeft by mutableIntStateOf(0)
         private set
 
+    var tags by mutableStateOf<Map<String, TagData>>(emptyMap())
+        private set
+    var pendingDelete: List<Song> = emptyList()
+
+    private var reloadJob: Job? = null
+    private val observer = object : ContentObserver(Handler(Looper.getMainLooper())) {
+        override fun onChange(selfChange: Boolean) {
+            scheduleReload()
+        }
+    }
+
     // Audio effects
     private var eq: Equalizer? = null
     private var bass: BassBoost? = null
@@ -81,6 +97,7 @@ class PlayerViewModel(app: Application) : AndroidViewModel(app) {
     init {
         favorites = store.favorites()
         playlists = store.playlists()
+        tags = store.tags()
         isPlaying = player.isPlaying
         shuffle = player.shuffleModeEnabled
         repeatMode = player.repeatMode
@@ -122,6 +139,27 @@ class PlayerViewModel(app: Application) : AndroidViewModel(app) {
             }
         }
         setupEffects()
+        try {
+            ctx.contentResolver.registerContentObserver(MediaStore.Audio.Media.EXTERNAL_CONTENT_URI, true, observer)
+        } catch (ex: Exception) {
+        }
+    }
+
+    private fun scheduleReload() {
+        if (!loaded) return
+        reloadJob?.cancel()
+        reloadJob = viewModelScope.launch {
+            delay(1000)
+            load()
+        }
+    }
+
+    override fun onCleared() {
+        try {
+            ctx.contentResolver.unregisterContentObserver(observer)
+        } catch (ex: Exception) {
+        }
+        super.onCleared()
     }
 
     // ---------- Library ----------
@@ -252,11 +290,65 @@ class PlayerViewModel(app: Application) : AndroidViewModel(app) {
         store.savePlaylists(playlists)
     }
 
-    fun addToPlaylist(name: String, song: Song) {
+    fun addToPlaylist(name: String, list: List<Song>) {
         val old = playlists[name].orEmpty()
-        if (song.id in old) return
-        playlists = playlists + (name to (old + song.id))
+        val merged = (old + list.map { it.id }).distinct()
+        playlists = playlists + (name to merged)
         store.savePlaylists(playlists)
+    }
+
+    fun removeFromPlaylist(name: String, ids: Set<Long>) {
+        val old = playlists[name] ?: return
+        playlists = playlists + (name to old.filter { it !in ids })
+        store.savePlaylists(playlists)
+    }
+
+    fun addFavorites(list: List<Song>) {
+        favorites = favorites + list.map { it.id }
+        store.saveFavorites(favorites)
+    }
+
+    // ---------- Tags ----------
+    fun createTag(name: String) {
+        val n = name.trim()
+        if (n.isEmpty() || n in tags) return
+        val c = TagColors[tags.size % TagColors.size].toArgb()
+        tags = tags + (n to TagData(c, emptyList()))
+        store.saveTags(tags)
+    }
+
+    fun addToTag(name: String, list: List<Song>) {
+        val t = tags[name] ?: return
+        tags = tags + (name to t.copy(ids = (t.ids + list.map { it.id }).distinct()))
+        store.saveTags(tags)
+    }
+
+    fun removeFromTag(name: String, ids: Set<Long>) {
+        val t = tags[name] ?: return
+        tags = tags + (name to t.copy(ids = t.ids.filter { it !in ids }))
+        store.saveTags(tags)
+    }
+
+    fun deleteTag(name: String) {
+        tags = tags - name
+        store.saveTags(tags)
+    }
+
+    // ---------- Delete ----------
+    fun finishDelete(removed: List<Song>) {
+        val ids = removed.map { it.id }.toSet()
+        if (ids.isEmpty()) return
+        for (i in player.mediaItemCount - 1 downTo 0) {
+            val id = player.getMediaItemAt(i).mediaId.toLongOrNull()
+            if (id != null && id in ids) player.removeMediaItem(i)
+        }
+        favorites = favorites - ids
+        store.saveFavorites(favorites)
+        playlists = playlists.mapValues { (_, v) -> v.filter { it !in ids } }
+        store.savePlaylists(playlists)
+        tags = tags.mapValues { (_, t) -> t.copy(ids = t.ids.filter { it !in ids }) }
+        store.saveTags(tags)
+        load()
     }
 
     fun deletePlaylist(name: String) {

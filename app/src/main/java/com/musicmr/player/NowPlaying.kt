@@ -35,6 +35,7 @@ import androidx.compose.material.icons.rounded.Equalizer
 import androidx.compose.material.icons.rounded.Favorite
 import androidx.compose.material.icons.rounded.FavoriteBorder
 import androidx.compose.material.icons.rounded.KeyboardArrowDown
+import androidx.compose.material.icons.rounded.Label
 import androidx.compose.material.icons.rounded.Pause
 import androidx.compose.material.icons.rounded.PlayArrow
 import androidx.compose.material.icons.rounded.QueueMusic
@@ -95,6 +96,7 @@ fun NowPlaying(vm: PlayerViewModel, onClose: () -> Unit) {
     var showSleep by remember { mutableStateOf(false) }
     var showEq by remember { mutableStateOf(false) }
     var showQueue by remember { mutableStateOf(false) }
+    var showTag by remember { mutableStateOf(false) }
 
     LaunchedEffect(song?.id) {
         val art = song?.artUri
@@ -184,33 +186,7 @@ fun NowPlaying(vm: PlayerViewModel, onClose: () -> Unit) {
                 }
             }
 
-            var dragging by remember { mutableStateOf(false) }
-            var dragValue by remember { mutableFloatStateOf(0f) }
-            val dur = vm.duration.coerceAtLeast(1L)
-            val shown = if (dragging) dragValue else (vm.position.toFloat() / dur).coerceIn(0f, 1f)
-            Slider(
-                value = shown,
-                onValueChange = { dragging = true; dragValue = it },
-                onValueChangeFinished = { vm.seekTo((dragValue * dur).toLong()); dragging = false },
-                colors = SliderDefaults.colors(
-                    thumbColor = Color.White,
-                    activeTrackColor = Color.White,
-                    inactiveTrackColor = Color.White.copy(alpha = 0.25f)
-                )
-            )
-            Row(Modifier.fillMaxWidth()) {
-                Text(
-                    fmt(if (dragging) (dragValue * dur).toLong() else vm.position),
-                    style = MaterialTheme.typography.bodySmall,
-                    color = Color.White.copy(alpha = 0.7f)
-                )
-                Spacer(Modifier.weight(1f))
-                Text(
-                    fmt(vm.duration),
-                    style = MaterialTheme.typography.bodySmall,
-                    color = Color.White.copy(alpha = 0.7f)
-                )
-            }
+            ProgressSection(vm)
 
             Spacer(Modifier.height(12.dp))
             Row(
@@ -265,6 +241,7 @@ fun NowPlaying(vm: PlayerViewModel, onClose: () -> Unit) {
                     showSleep = true
                 }
                 Pill(Icons.Rounded.Equalizer, "EQ") { showEq = true }
+                Pill(Icons.Rounded.Label, "Tag") { showTag = true }
                 Pill(Icons.Rounded.QueueMusic, "Queue") { showQueue = true }
             }
             Spacer(Modifier.height(12.dp))
@@ -292,6 +269,7 @@ fun NowPlaying(vm: PlayerViewModel, onClose: () -> Unit) {
         )
     }
     if (showEq) EqualizerDialog(vm) { showEq = false }
+    if (showTag && song != null) TagPickerDialog(vm, listOf(song), onDismiss = { showTag = false })
     if (showQueue) {
         ModalBottomSheet(onDismissRequest = { showQueue = false }, containerColor = Surface1) {
             Text(
@@ -410,4 +388,37 @@ fun EqualizerDialog(vm: PlayerViewModel, onDismiss: () -> Unit) {
             }
         }
     )
+}
+
+@Composable
+fun ProgressSection(vm: PlayerViewModel) {
+    var dragging by remember { mutableStateOf(false) }
+    var dragValue by remember { mutableFloatStateOf(0f) }
+    val dur = vm.duration.coerceAtLeast(1L)
+    val shown = if (dragging) dragValue else (vm.position.toFloat() / dur).coerceIn(0f, 1f)
+    Column {
+        Slider(
+            value = shown,
+            onValueChange = { dragging = true; dragValue = it },
+            onValueChangeFinished = { vm.seekTo((dragValue * dur).toLong()); dragging = false },
+            colors = SliderDefaults.colors(
+                thumbColor = Color.White,
+                activeTrackColor = Color.White,
+                inactiveTrackColor = Color.White.copy(alpha = 0.25f)
+            )
+        )
+        Row(Modifier.fillMaxWidth()) {
+            Text(
+                fmt(if (dragging) (dragValue * dur).toLong() else vm.position),
+                style = MaterialTheme.typography.bodySmall,
+                color = Color.White.copy(alpha = 0.7f)
+            )
+            Spacer(Modifier.weight(1f))
+            Text(
+                fmt(vm.duration),
+                style = MaterialTheme.typography.bodySmall,
+                color = Color.White.copy(alpha = 0.7f)
+            )
+        }
+    }
 }
