@@ -417,7 +417,7 @@ class PlayerViewModel(app: Application) : AndroidViewModel(app) {
         applyFilter()
     }
 
-    fun setTelegramUrl(raw: String) {
+    fun saveTelegramLink(raw: String) {
         var u = raw.trim()
         if (u.isEmpty()) {
             u = TELEGRAM_URL

@@ -78,7 +78,7 @@ fun SettingsScreen(vm: PlayerViewModel, onClose: () -> Unit) {
                             modifier = Modifier.weight(1f)
                         )
                         Spacer(Modifier.width(8.dp))
-                        Button(onClick = { vm.setTelegramUrl(link) }) { Text("Save") }
+                        Button(onClick = { vm.saveTelegramLink(link) }) { Text("Save") }
                     }
                     Spacer(Modifier.height(20.dp))
                     Text("Folders", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
