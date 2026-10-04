@@ -6,6 +6,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -161,4 +162,46 @@ fun TagPickerDialog(
             }
         )
     }
+}
+
+@Composable
+fun EditNameDialog(
+    song: Song,
+    edited: Boolean,
+    onSave: (String, String) -> Unit,
+    onReset: () -> Unit,
+    onDismiss: () -> Unit
+) {
+    var title by remember { mutableStateOf(song.title) }
+    var artist by remember { mutableStateOf(song.artist) }
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Edit name") },
+        text = {
+            Column {
+                OutlinedTextField(
+                    value = title,
+                    onValueChange = { title = it },
+                    singleLine = true,
+                    label = { Text("Song name") }
+                )
+                Spacer(Modifier.height(8.dp))
+                OutlinedTextField(
+                    value = artist,
+                    onValueChange = { artist = it },
+                    singleLine = true,
+                    label = { Text("Artist") }
+                )
+            }
+        },
+        confirmButton = {
+            TextButton(onClick = { if (title.isNotBlank()) onSave(title, artist) }) { Text("Save") }
+        },
+        dismissButton = {
+            Row {
+                if (edited) TextButton(onClick = onReset) { Text("Reset") }
+                TextButton(onClick = onDismiss) { Text("Cancel") }
+            }
+        }
+    )
 }

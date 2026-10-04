@@ -104,6 +104,17 @@ fun SettingsScreen(vm: PlayerViewModel, onClose: () -> Unit) {
                         }
                         Switch(checked = vm.reverseOrder, onCheckedChange = { vm.changeReverseOrder(it) })
                     }
+                    Row(Modifier.fillMaxWidth().padding(top = 8.dp), verticalAlignment = Alignment.CenterVertically) {
+                        Column(Modifier.weight(1f)) {
+                            Text("Arabic text = song name")
+                            Text(
+                                "When a title mixes English and Arabic, show the Arabic part as the song name.",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = muted
+                            )
+                        }
+                        Switch(checked = vm.arabicSong, onCheckedChange = { vm.changeArabicSong(it) })
+                    }
                     Spacer(Modifier.height(20.dp))
                     Text("Folders", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
                     Text(

@@ -1,5 +1,6 @@
 package com.musicmr.player
 
+import android.app.PendingIntent
 import android.content.Context
 import android.content.Intent
 import androidx.media3.common.AudioAttributes
@@ -52,7 +53,13 @@ class PlaybackService : MediaSessionService() {
     override fun onCreate() {
         super.onCreate()
         val p = PlayerHolder.get(this)
-        session = MediaSession.Builder(this, p).build()
+        val open = PendingIntent.getActivity(
+            this, 0, Intent(this, MainActivity::class.java),
+            PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
+        )
+        val s = MediaSession.Builder(this, p).setSessionActivity(open).build()
+        session = s
+        addSession(s)
         p.addListener(listener)
         publish()
     }
@@ -83,7 +90,10 @@ class PlaybackService : MediaSessionService() {
         WidgetPrefs.setPlaying(this, false)
         val app = applicationContext
         Thread { WidgetUpdater.updateAll(app) }.start()
-        session?.release()
+        session?.let {
+            removeSession(it)
+            it.release()
+        }
         session = null
         super.onDestroy()
     }

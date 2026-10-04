@@ -10,6 +10,7 @@ import android.content.Intent
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import android.net.Uri
+import android.view.View
 import android.widget.RemoteViews
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -53,6 +54,19 @@ object WidgetPrefs {
         return Triple(p[0], p[1], p[2])
     }
 
+    fun saveTags(ctx: Context, id: Int, names: List<String>) {
+        sp(ctx).edit().putString("t$id", names.joinToString("\u0001")).apply()
+    }
+
+    fun tags(ctx: Context, id: Int): List<String> {
+        val raw = sp(ctx).getString("t$id", null) ?: return emptyList()
+        return raw.split("\u0001").filter { it.isNotBlank() }
+    }
+
+    fun removeTags(ctx: Context, id: Int) {
+        sp(ctx).edit().remove("t$id").apply()
+    }
+
     fun removeSource(ctx: Context, id: Int) {
         sp(ctx).edit().remove("w$id").apply()
     }
@@ -67,7 +81,7 @@ object WidgetQueue {
             emptyList()
         }
         val excluded = store.excluded()
-        val all = TitleParser.process(raw, store.smartTitles(), store.reverseOrder(), store.titleModes())
+        val all = TitleParser.process(raw, store.smartTitles(), store.reverseOrder(), store.titleModes(), store.edits(), store.arabicSong())
             .filter { it.folder !in excluded }
         val byId = all.associateBy { it.id }
         return when (kind) {
@@ -105,6 +119,8 @@ object WidgetUpdater {
             if (pIds.isNotEmpty()) mgr.updateAppWidget(pIds, playerViews(ctx))
             val sIds = mgr.getAppWidgetIds(ComponentName(ctx, SourceWidgetProvider::class.java))
             for (id in sIds) mgr.updateAppWidget(id, sourceViews(ctx, id))
+            val tIds = mgr.getAppWidgetIds(ComponentName(ctx, TagsWidgetProvider::class.java))
+            for (id in tIds) mgr.updateAppWidget(id, tagsViews(ctx, id))
         } catch (e: Exception) {
         }
     }
@@ -150,6 +166,30 @@ object WidgetUpdater {
         return v
     }
 
+    private fun tagsViews(ctx: Context, id: Int): RemoteViews {
+        val v = RemoteViews(ctx.packageName, R.layout.widget_tags)
+        val all = Store(ctx).tags()
+        val names = WidgetPrefs.tags(ctx, id).filter { it in all }.take(4)
+        val chips = intArrayOf(R.id.t1, R.id.t2, R.id.t3, R.id.t4)
+        val dots = intArrayOf(R.id.d1, R.id.d2, R.id.d3, R.id.d4)
+        val labels = intArrayOf(R.id.n1, R.id.n2, R.id.n3, R.id.n4)
+        for (i in 0 until 4) {
+            val name = names.getOrNull(i)
+            if (name == null) {
+                v.setViewVisibility(chips[i], View.INVISIBLE)
+            } else {
+                v.setViewVisibility(chips[i], View.VISIBLE)
+                v.setTextViewText(labels[i], name)
+                v.setInt(dots[i], "setColorFilter", all[name]?.color ?: 0xFF8B5CF6.toInt())
+                v.setOnClickPendingIntent(chips[i], pi(ctx, ACT_PLAY_SOURCE, "tg$id-$i") {
+                    it.putExtra("kind", "tag").putExtra("key", name).putExtra("shuffle", true)
+                })
+            }
+        }
+        v.setOnClickPendingIntent(R.id.w_root, openApp(ctx))
+        return v
+    }
+
     private fun loadArt(ctx: Context, uriStr: String): Bitmap? {
         if (uriStr.isBlank()) return null
         return try {
@@ -179,6 +219,16 @@ class SourceWidgetProvider : AppWidgetProvider() {
 
     override fun onDeleted(context: Context, appWidgetIds: IntArray) {
         appWidgetIds.forEach { WidgetPrefs.removeSource(context, it) }
+    }
+}
+
+class TagsWidgetProvider : AppWidgetProvider() {
+    override fun onUpdate(context: Context, appWidgetManager: AppWidgetManager, appWidgetIds: IntArray) {
+        WidgetUpdater.updateAll(context)
+    }
+
+    override fun onDeleted(context: Context, appWidgetIds: IntArray) {
+        appWidgetIds.forEach { WidgetPrefs.removeTags(context, it) }
     }
 }
 

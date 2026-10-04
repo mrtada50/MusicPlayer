@@ -160,25 +160,56 @@ class Store(ctx: Context) {
         sp.edit().putBoolean("rev", b).apply()
     }
 
-    fun titleModes(): Map<Long, Int> {
-        val result = HashMap<Long, Int>()
+    fun arabicSong(): Boolean = sp.getBoolean("arabic", true)
+
+    fun saveArabicSong(b: Boolean) {
+        sp.edit().putBoolean("arabic", b).apply()
+    }
+
+    fun titleModes(): Map<String, Int> {
+        val result = HashMap<String, Int>()
         try {
-            val o = JSONObject(sp.getString("tmodes", "{}") ?: "{}")
+            val o = JSONObject(sp.getString("tmodes2", "{}") ?: "{}")
             val keys = o.keys()
             while (keys.hasNext()) {
                 val k = keys.next()
-                val id = k.toLongOrNull() ?: continue
-                result[id] = o.getInt(k)
+                result[k] = o.getInt(k)
             }
         } catch (ex: Exception) {
         }
         return result
     }
 
-    fun saveTitleModes(m: Map<Long, Int>) {
+    fun saveTitleModes(m: Map<String, Int>) {
         val o = JSONObject()
-        m.forEach { (k, v) -> o.put(k.toString(), v) }
-        sp.edit().putString("tmodes", o.toString()).apply()
+        m.forEach { (k, v) -> o.put(k, v) }
+        sp.edit().putString("tmodes2", o.toString()).apply()
+    }
+
+    fun edits(): Map<String, Pair<String, String>> {
+        val result = HashMap<String, Pair<String, String>>()
+        try {
+            val o = JSONObject(sp.getString("edits", "{}") ?: "{}")
+            val keys = o.keys()
+            while (keys.hasNext()) {
+                val k = keys.next()
+                val v = o.getJSONObject(k)
+                result[k] = Pair(v.getString("t"), v.getString("a"))
+            }
+        } catch (ex: Exception) {
+        }
+        return result
+    }
+
+    fun saveEdits(m: Map<String, Pair<String, String>>) {
+        val o = JSONObject()
+        m.forEach { (k, v) ->
+            val x = JSONObject()
+            x.put("t", v.first)
+            x.put("a", v.second)
+            o.put(k, x)
+        }
+        sp.edit().putString("edits", o.toString()).apply()
     }
 
     fun sortMode(): Int = sp.getInt("sort", 0)

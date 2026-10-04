@@ -7,6 +7,11 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.material3.Button
+import androidx.compose.material3.Checkbox
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
@@ -117,5 +122,79 @@ private fun ConfigScreen(onPick: (String, String, String) -> Unit) {
                 items(artists.size) { i -> Option(artists[i]) { onPick("artist", artists[i], artists[i]) } }
             }
         }
+    }
+}
+
+class TagsConfigActivity : ComponentActivity() {
+    private var widgetId = AppWidgetManager.INVALID_APPWIDGET_ID
+
+    override fun onCreate(savedInstanceState: Bundle?) {
+        super.onCreate(savedInstanceState)
+        setResult(RESULT_CANCELED)
+        widgetId = intent?.extras?.getInt(
+            AppWidgetManager.EXTRA_APPWIDGET_ID,
+            AppWidgetManager.INVALID_APPWIDGET_ID
+        ) ?: AppWidgetManager.INVALID_APPWIDGET_ID
+        if (widgetId == AppWidgetManager.INVALID_APPWIDGET_ID) {
+            finish()
+            return
+        }
+        val initial = WidgetPrefs.tags(this, widgetId)
+        setContent {
+            MusicTheme {
+                Surface(Modifier.fillMaxSize(), color = Bg, contentColor = Color.White) {
+                    TagsConfigScreen(initial) { names ->
+                        WidgetPrefs.saveTags(this, widgetId, names)
+                        WidgetUpdater.updateAll(applicationContext)
+                        setResult(RESULT_OK, Intent().putExtra(AppWidgetManager.EXTRA_APPWIDGET_ID, widgetId))
+                        finish()
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun TagsConfigScreen(initial: List<String>, onSave: (List<String>) -> Unit) {
+    val ctx = LocalContext.current
+    val tags = remember { Store(ctx.applicationContext).tags() }
+    val names = remember { tags.keys.toList() }
+    var chosen by remember { mutableStateOf(initial.filter { it in tags }) }
+    Column(Modifier.fillMaxSize().padding(top = 16.dp)) {
+        Text(
+            "Choose up to 4 tags",
+            style = MaterialTheme.typography.titleLarge,
+            fontWeight = FontWeight.Bold,
+            modifier = Modifier.padding(horizontal = 20.dp)
+        )
+        if (names.isEmpty()) {
+            Text(
+                "No tags yet. Create tags in the app first (Library > Tags).",
+                modifier = Modifier.padding(20.dp)
+            )
+        }
+        LazyColumn(Modifier.weight(1f)) {
+            items(names.size) { i ->
+                val name = names[i]
+                Row(
+                    Modifier
+                        .fillMaxWidth()
+                        .clickable {
+                            chosen = if (name in chosen) chosen - name
+                            else if (chosen.size < 4) chosen + name else chosen
+                        }
+                        .padding(horizontal = 20.dp, vertical = 10.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Checkbox(checked = name in chosen, onCheckedChange = null)
+                    Text(name, modifier = Modifier.padding(start = 12.dp))
+                }
+            }
+        }
+        Button(
+            onClick = { onSave(chosen) },
+            modifier = Modifier.fillMaxWidth().padding(20.dp)
+        ) { Text("Save") }
     }
 }

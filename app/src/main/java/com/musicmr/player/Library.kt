@@ -110,7 +110,8 @@ class SongActions(
     val onTag: (Song) -> Unit,
     val onDelete: (Song) -> Unit,
     val onToggle: (Song) -> Unit,
-    val onTitleMode: (Song, Int) -> Unit
+    val onTitleMode: (Song, Int) -> Unit,
+    val onEdit: (Song) -> Unit
 )
 
 @Composable
@@ -132,6 +133,15 @@ fun App(vm: PlayerViewModel) {
         launcher.launch(perms.toTypedArray())
     }
     LaunchedEffect(Unit) { if (granted) vm.load() else request() }
+    val notifLauncher = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { }
+    LaunchedEffect(granted) {
+        if (granted && Build.VERSION.SDK_INT >= 33 &&
+            ContextCompat.checkSelfPermission(ctx, Manifest.permission.POST_NOTIFICATIONS) !=
+            PackageManager.PERMISSION_GRANTED
+        ) {
+            notifLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
+        }
+    }
     if (!granted) {
         PermissionScreen(onGrant = request)
     } else {
@@ -175,6 +185,7 @@ fun Library(vm: PlayerViewModel) {
     var deleteFor by remember { mutableStateOf<List<Song>?>(null) }
     var showSettings by remember { mutableStateOf(false) }
     var showSort by remember { mutableStateOf(false) }
+    var editFor by remember { mutableStateOf<Song?>(null) }
 
     val holder = remember { arrayOfNulls<ActivityResultLauncher<IntentSenderRequest>>(1) }
     val launchSender: (IntentSender) -> Unit = { sender ->
@@ -229,7 +240,8 @@ fun Library(vm: PlayerViewModel) {
         onTag = { tagFor = listOf(it) },
         onDelete = { deleteFor = listOf(it) },
         onToggle = { s -> selected = if (s.id in selected) selected - s.id else selected + s.id },
-        onTitleMode = { s, m -> vm.changeTitleMode(s, m) }
+        onTitleMode = { s, m -> vm.changeTitleMode(s, m) },
+        onEdit = { editFor = it }
     )
 
     Box(Modifier.fillMaxSize()) {
@@ -425,6 +437,15 @@ fun Library(vm: PlayerViewModel) {
             onDismiss = { deleteFor = null }
         )
     }
+    editFor?.let { s ->
+        EditNameDialog(
+            song = s,
+            edited = s.path in vm.edits,
+            onSave = { t, a -> vm.saveEdit(s, t, a); editFor = null },
+            onReset = { vm.clearEdit(s); editFor = null },
+            onDismiss = { editFor = null }
+        )
+    }
     if (showSort) {
         ChoiceDialog(
             "Sort by",
@@ -498,8 +519,9 @@ fun SongList(
                 onPlaylist = { actions.onPlaylist(s) },
                 onTag = { actions.onTag(s) },
                 onDelete = { actions.onDelete(s) },
-                titleMode = vm.titleModes[s.id] ?: 0,
-                onTitleMode = { m -> actions.onTitleMode(s, m) }
+                titleMode = vm.titleModes[s.path] ?: 0,
+                onTitleMode = { m -> actions.onTitleMode(s, m) },
+                onEdit = { actions.onEdit(s) }
             )
         }
         item(key = "end", contentType = "end") { Spacer(Modifier.height(8.dp)) }

@@ -89,7 +89,11 @@ class PlayerViewModel(app: Application) : AndroidViewModel(app) {
         private set
     var reverseOrder by mutableStateOf(false)
         private set
-    var titleModes by mutableStateOf<Map<Long, Int>>(emptyMap())
+    var arabicSong by mutableStateOf(true)
+        private set
+    var titleModes by mutableStateOf<Map<String, Int>>(emptyMap())
+        private set
+    var edits by mutableStateOf<Map<String, Pair<String, String>>>(emptyMap())
         private set
 
     private var reloadJob: Job? = null
@@ -130,7 +134,9 @@ class PlayerViewModel(app: Application) : AndroidViewModel(app) {
         attempted = store.attempted()
         smartTitles = store.smartTitles()
         reverseOrder = store.reverseOrder()
+        arabicSong = store.arabicSong()
         titleModes = store.titleModes()
+        edits = store.edits()
         isPlaying = player.isPlaying
         shuffle = player.shuffleModeEnabled
         repeatMode = player.repeatMode
@@ -221,7 +227,7 @@ class PlayerViewModel(app: Application) : AndroidViewModel(app) {
     }
 
     private fun recomputeTitles() {
-        allSongs = TitleParser.process(rawSongs, smartTitles, reverseOrder, titleModes)
+        allSongs = TitleParser.process(rawSongs, smartTitles, reverseOrder, titleModes, edits, arabicSong)
         byId = allSongs.associateBy { it.id }
         applyFilter()
     }
@@ -238,9 +244,30 @@ class PlayerViewModel(app: Application) : AndroidViewModel(app) {
         recomputeTitles()
     }
 
+    fun changeArabicSong(b: Boolean) {
+        arabicSong = b
+        store.saveArabicSong(b)
+        recomputeTitles()
+    }
+
     fun changeTitleMode(song: Song, mode: Int) {
-        titleModes = if (mode == 0) titleModes - song.id else titleModes + (song.id to mode)
+        titleModes = if (mode == 0) titleModes - song.path else titleModes + (song.path to mode)
         store.saveTitleModes(titleModes)
+        recomputeTitles()
+    }
+
+    fun saveEdit(song: Song, title: String, artist: String) {
+        val t = title.trim()
+        if (t.isEmpty()) return
+        val a = artist.trim().ifEmpty { "Unknown artist" }
+        edits = edits + (song.path to Pair(t, a))
+        store.saveEdits(edits)
+        recomputeTitles()
+    }
+
+    fun clearEdit(song: Song) {
+        edits = edits - song.path
+        store.saveEdits(edits)
         recomputeTitles()
     }
 

@@ -123,7 +123,8 @@ fun SongRow(
     onTag: () -> Unit,
     onDelete: () -> Unit,
     titleMode: Int,
-    onTitleMode: (Int) -> Unit
+    onTitleMode: (Int) -> Unit,
+    onEdit: () -> Unit
 ) {
     var menu by remember { mutableStateOf(false) }
     val muted = MaterialTheme.colorScheme.onSurfaceVariant
@@ -175,6 +176,7 @@ fun SongRow(
                     DropdownMenuItem(text = { Text("Add to queue") }, onClick = { menu = false; onQueue() })
                     DropdownMenuItem(text = { Text("Add to playlist") }, onClick = { menu = false; onPlaylist() })
                     DropdownMenuItem(text = { Text("Add to tag") }, onClick = { menu = false; onTag() })
+                    DropdownMenuItem(text = { Text("Edit name") }, onClick = { menu = false; onEdit() })
                     DropdownMenuItem(
                         text = { Text("Swap artist / title") },
                         onClick = { menu = false; onTitleMode(if (titleMode == 1) 0 else 1) }
