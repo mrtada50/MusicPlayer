@@ -1,5 +1,0 @@
--dontwarn org.checkerframework.**
--dontwarn javax.annotation.**
--dontwarn com.google.errorprone.annotations.**
--dontwarn org.codehaus.mojo.animal_sniffer.**
--dontwarn org.jspecify.annotations.**
