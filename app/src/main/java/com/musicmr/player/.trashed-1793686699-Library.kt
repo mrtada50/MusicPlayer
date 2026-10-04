@@ -109,8 +109,7 @@ class SongActions(
     val onPlaylist: (Song) -> Unit,
     val onTag: (Song) -> Unit,
     val onDelete: (Song) -> Unit,
-    val onToggle: (Song) -> Unit,
-    val onTitleMode: (Song, Int) -> Unit
+    val onToggle: (Song) -> Unit
 )
 
 @Composable
@@ -228,8 +227,7 @@ fun Library(vm: PlayerViewModel) {
         onPlaylist = { playlistFor = listOf(it) },
         onTag = { tagFor = listOf(it) },
         onDelete = { deleteFor = listOf(it) },
-        onToggle = { s -> selected = if (s.id in selected) selected - s.id else selected + s.id },
-        onTitleMode = { s, m -> vm.changeTitleMode(s, m) }
+        onToggle = { s -> selected = if (s.id in selected) selected - s.id else selected + s.id }
     )
 
     Box(Modifier.fillMaxSize()) {
@@ -497,9 +495,7 @@ fun SongList(
                 onQueue = { vm.addToQueue(s) },
                 onPlaylist = { actions.onPlaylist(s) },
                 onTag = { actions.onTag(s) },
-                onDelete = { actions.onDelete(s) },
-                titleMode = vm.titleModes[s.id] ?: 0,
-                onTitleMode = { m -> actions.onTitleMode(s, m) }
+                onDelete = { actions.onDelete(s) }
             )
         }
         item(key = "end", contentType = "end") { Spacer(Modifier.height(8.dp)) }

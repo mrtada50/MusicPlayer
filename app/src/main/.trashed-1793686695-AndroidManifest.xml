@@ -34,40 +34,5 @@
                 <action android:name="androidx.media3.session.MediaSessionService" />
             </intent-filter>
         </service>
-
-        <receiver
-            android:name=".PlayerWidgetProvider"
-            android:exported="false">
-            <intent-filter>
-                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
-            </intent-filter>
-            <meta-data
-                android:name="android.appwidget.provider"
-                android:resource="@xml/widget_player_info" />
-        </receiver>
-
-        <receiver
-            android:name=".SourceWidgetProvider"
-            android:exported="false">
-            <intent-filter>
-                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
-            </intent-filter>
-            <meta-data
-                android:name="android.appwidget.provider"
-                android:resource="@xml/widget_source_info" />
-        </receiver>
-
-        <receiver
-            android:name=".WidgetActionReceiver"
-            android:exported="false" />
-
-        <activity
-            android:name=".WidgetConfigActivity"
-            android:exported="true"
-            android:theme="@style/Theme.MusicPlayer">
-            <intent-filter>
-                <action android:name="android.appwidget.action.APPWIDGET_CONFIGURE" />
-            </intent-filter>
-        </activity>
     </application>
 </manifest>

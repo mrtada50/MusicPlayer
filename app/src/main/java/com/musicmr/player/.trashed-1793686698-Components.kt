@@ -121,9 +121,7 @@ fun SongRow(
     onQueue: () -> Unit,
     onPlaylist: () -> Unit,
     onTag: () -> Unit,
-    onDelete: () -> Unit,
-    titleMode: Int,
-    onTitleMode: (Int) -> Unit
+    onDelete: () -> Unit
 ) {
     var menu by remember { mutableStateOf(false) }
     val muted = MaterialTheme.colorScheme.onSurfaceVariant
@@ -175,16 +173,6 @@ fun SongRow(
                     DropdownMenuItem(text = { Text("Add to queue") }, onClick = { menu = false; onQueue() })
                     DropdownMenuItem(text = { Text("Add to playlist") }, onClick = { menu = false; onPlaylist() })
                     DropdownMenuItem(text = { Text("Add to tag") }, onClick = { menu = false; onTag() })
-                    DropdownMenuItem(
-                        text = { Text("Swap artist / title") },
-                        onClick = { menu = false; onTitleMode(if (titleMode == 1) 0 else 1) }
-                    )
-                    if (titleMode == 2 || song.title != song.rawTitle) {
-                        DropdownMenuItem(
-                            text = { Text(if (titleMode == 2) "Use smart title" else "Restore original name") },
-                            onClick = { menu = false; onTitleMode(if (titleMode == 2) 0 else 2) }
-                        )
-                    }
                     DropdownMenuItem(
                         text = { Text("Delete", color = Color(0xFFFB7185)) },
                         onClick = { menu = false; onDelete() }

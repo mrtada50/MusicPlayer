@@ -81,30 +81,6 @@ fun SettingsScreen(vm: PlayerViewModel, onClose: () -> Unit) {
                         Button(onClick = { vm.saveTelegramLink(link) }) { Text("Save") }
                     }
                     Spacer(Modifier.height(20.dp))
-                    Text("Titles", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
-                    Row(Modifier.fillMaxWidth().padding(top = 8.dp), verticalAlignment = Alignment.CenterVertically) {
-                        Column(Modifier.weight(1f)) {
-                            Text("Smart titles")
-                            Text(
-                                "Song name large, artist small. Splits 'Artist - Song' titles.",
-                                style = MaterialTheme.typography.bodySmall,
-                                color = muted
-                            )
-                        }
-                        Switch(checked = vm.smartTitles, onCheckedChange = { vm.changeSmartTitles(it) })
-                    }
-                    Row(Modifier.fillMaxWidth().padding(top = 8.dp), verticalAlignment = Alignment.CenterVertically) {
-                        Column(Modifier.weight(1f)) {
-                            Text("Song - Artist order")
-                            Text(
-                                "Use when your files are named 'Song - Artist'.",
-                                style = MaterialTheme.typography.bodySmall,
-                                color = muted
-                            )
-                        }
-                        Switch(checked = vm.reverseOrder, onCheckedChange = { vm.changeReverseOrder(it) })
-                    }
-                    Spacer(Modifier.height(20.dp))
                     Text("Folders", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
                     Text(
                         "Turn a folder off to hide its audio from the player.",

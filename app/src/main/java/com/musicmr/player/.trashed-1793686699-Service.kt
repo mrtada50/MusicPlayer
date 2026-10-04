@@ -4,9 +4,6 @@ import android.content.Context
 import android.content.Intent
 import androidx.media3.common.AudioAttributes
 import androidx.media3.common.C
-import androidx.media3.common.MediaItem
-import androidx.media3.common.MediaMetadata
-import androidx.media3.common.Player
 import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.session.MediaSession
 import androidx.media3.session.MediaSessionService
@@ -35,40 +32,9 @@ object PlayerHolder {
 class PlaybackService : MediaSessionService() {
     private var session: MediaSession? = null
 
-    private val listener = object : Player.Listener {
-        override fun onIsPlayingChanged(isPlaying: Boolean) {
-            publish()
-        }
-
-        override fun onMediaItemTransition(mediaItem: MediaItem?, reason: Int) {
-            publish()
-        }
-
-        override fun onMediaMetadataChanged(mediaMetadata: MediaMetadata) {
-            publish()
-        }
-    }
-
     override fun onCreate() {
         super.onCreate()
-        val p = PlayerHolder.get(this)
-        session = MediaSession.Builder(this, p).build()
-        p.addListener(listener)
-        publish()
-    }
-
-    private fun publish() {
-        val p = PlayerHolder.get(this)
-        val md = p.currentMediaItem?.mediaMetadata
-        WidgetPrefs.saveNow(
-            this,
-            md?.title?.toString().orEmpty(),
-            md?.artist?.toString().orEmpty(),
-            md?.artworkUri?.toString().orEmpty(),
-            p.isPlaying
-        )
-        val app = applicationContext
-        Thread { WidgetUpdater.updateAll(app) }.start()
+        session = MediaSession.Builder(this, PlayerHolder.get(this)).build()
     }
 
     override fun onGetSession(controllerInfo: MediaSession.ControllerInfo): MediaSession? = session
@@ -79,10 +45,6 @@ class PlaybackService : MediaSessionService() {
     }
 
     override fun onDestroy() {
-        PlayerHolder.get(this).removeListener(listener)
-        WidgetPrefs.setPlaying(this, false)
-        val app = applicationContext
-        Thread { WidgetUpdater.updateAll(app) }.start()
         session?.release()
         session = null
         super.onDestroy()

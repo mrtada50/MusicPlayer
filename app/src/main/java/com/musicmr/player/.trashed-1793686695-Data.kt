@@ -4,8 +4,6 @@ import android.content.ContentUris
 import android.content.Context
 import android.net.Uri
 import android.provider.MediaStore
-import androidx.media3.common.MediaItem
-import androidx.media3.common.MediaMetadata
 import org.json.JSONArray
 import org.json.JSONObject
 
@@ -19,9 +17,7 @@ data class Song(
     val uri: Uri,
     val artUri: Uri,
     val path: String,
-    val dateAdded: Long,
-    val rawTitle: String,
-    val rawArtist: String
+    val dateAdded: Long
 ) {
     val folder: String get() = path.substringBeforeLast('/', "")
 }
@@ -53,11 +49,10 @@ object MusicRepository {
                 val albumId = c.getLong(4)
                 val artist = c.getString(2)?.takeIf { it.isNotBlank() && it != "<unknown>" } ?: "Unknown artist"
                 val album = c.getString(3)?.takeIf { it.isNotBlank() } ?: "Unknown album"
-                val title0 = c.getString(1) ?: "Unknown"
                 list.add(
                     Song(
                         id = id,
-                        title = title0,
+                        title = c.getString(1) ?: "Unknown",
                         artist = artist,
                         album = album,
                         albumId = albumId,
@@ -65,9 +60,7 @@ object MusicRepository {
                         uri = ContentUris.withAppendedId(MediaStore.Audio.Media.EXTERNAL_CONTENT_URI, id),
                         artUri = ContentUris.withAppendedId(artBase, albumId),
                         path = c.getString(6) ?: "",
-                        dateAdded = c.getLong(7),
-                        rawTitle = title0,
-                        rawArtist = artist
+                        dateAdded = c.getLong(7)
                     )
                 )
             }
@@ -148,39 +141,6 @@ class Store(ctx: Context) {
         sp.edit().putStringSet("attempted", s.toSet()).apply()
     }
 
-    fun smartTitles(): Boolean = sp.getBoolean("smart", true)
-
-    fun saveSmartTitles(b: Boolean) {
-        sp.edit().putBoolean("smart", b).apply()
-    }
-
-    fun reverseOrder(): Boolean = sp.getBoolean("rev", false)
-
-    fun saveReverseOrder(b: Boolean) {
-        sp.edit().putBoolean("rev", b).apply()
-    }
-
-    fun titleModes(): Map<Long, Int> {
-        val result = HashMap<Long, Int>()
-        try {
-            val o = JSONObject(sp.getString("tmodes", "{}") ?: "{}")
-            val keys = o.keys()
-            while (keys.hasNext()) {
-                val k = keys.next()
-                val id = k.toLongOrNull() ?: continue
-                result[id] = o.getInt(k)
-            }
-        } catch (ex: Exception) {
-        }
-        return result
-    }
-
-    fun saveTitleModes(m: Map<Long, Int>) {
-        val o = JSONObject()
-        m.forEach { (k, v) -> o.put(k.toString(), v) }
-        sp.edit().putString("tmodes", o.toString()).apply()
-    }
-
     fun sortMode(): Int = sp.getInt("sort", 0)
 
     fun saveSortMode(i: Int) {
@@ -218,16 +178,3 @@ class Store(ctx: Context) {
         sp.edit().putString("pl", o.toString()).apply()
     }
 }
-
-fun Song.toMediaItem(): MediaItem = MediaItem.Builder()
-    .setMediaId(id.toString())
-    .setUri(uri)
-    .setMediaMetadata(
-        MediaMetadata.Builder()
-            .setTitle(title)
-            .setArtist(artist)
-            .setAlbumTitle(album)
-            .setArtworkUri(artUri)
-            .build()
-    )
-    .build()

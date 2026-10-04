@@ -84,13 +84,6 @@ class PlayerViewModel(app: Application) : AndroidViewModel(app) {
     var telegramUrl by mutableStateOf(TELEGRAM_URL)
         private set
     private var attempted: Set<String> = emptySet()
-    private var rawSongs: List<Song> = emptyList()
-    var smartTitles by mutableStateOf(true)
-        private set
-    var reverseOrder by mutableStateOf(false)
-        private set
-    var titleModes by mutableStateOf<Map<Long, Int>>(emptyMap())
-        private set
 
     private var reloadJob: Job? = null
     private val observer = object : ContentObserver(Handler(Looper.getMainLooper())) {
@@ -128,9 +121,6 @@ class PlayerViewModel(app: Application) : AndroidViewModel(app) {
         playCounts = store.playCounts()
         telegramUrl = store.telegramUrl()
         attempted = store.attempted()
-        smartTitles = store.smartTitles()
-        reverseOrder = store.reverseOrder()
-        titleModes = store.titleModes()
         isPlaying = player.isPlaying
         shuffle = player.shuffleModeEnabled
         repeatMode = player.repeatMode
@@ -214,34 +204,11 @@ class PlayerViewModel(app: Application) : AndroidViewModel(app) {
                     emptyList()
                 }
             }
-            rawSongs = list
-            recomputeTitles()
+            allSongs = list
+            byId = list.associateBy { it.id }
+            applyFilter()
             loaded = true
         }
-    }
-
-    private fun recomputeTitles() {
-        allSongs = TitleParser.process(rawSongs, smartTitles, reverseOrder, titleModes)
-        byId = allSongs.associateBy { it.id }
-        applyFilter()
-    }
-
-    fun changeSmartTitles(b: Boolean) {
-        smartTitles = b
-        store.saveSmartTitles(b)
-        recomputeTitles()
-    }
-
-    fun changeReverseOrder(b: Boolean) {
-        reverseOrder = b
-        store.saveReverseOrder(b)
-        recomputeTitles()
-    }
-
-    fun changeTitleMode(song: Song, mode: Int) {
-        titleModes = if (mode == 0) titleModes - song.id else titleModes + (song.id to mode)
-        store.saveTitleModes(titleModes)
-        recomputeTitles()
     }
 
     private fun applyFilter() {
@@ -249,7 +216,18 @@ class PlayerViewModel(app: Application) : AndroidViewModel(app) {
         syncCurrent()
     }
 
-    private fun toItem(s: Song): MediaItem = s.toMediaItem()
+    private fun toItem(s: Song): MediaItem = MediaItem.Builder()
+        .setMediaId(s.id.toString())
+        .setUri(s.uri)
+        .setMediaMetadata(
+            MediaMetadata.Builder()
+                .setTitle(s.title)
+                .setArtist(s.artist)
+                .setAlbumTitle(s.album)
+                .setArtworkUri(s.artUri)
+                .build()
+        )
+        .build()
 
     private fun syncCurrent() {
         val n = player.mediaItemCount
